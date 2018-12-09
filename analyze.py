@@ -101,7 +101,8 @@ def grouped_communication_barchart(worlds):
         selector = process.student_group_selector(student_group)
         group_worlds = process.apply_selectors(worlds, [selector])
         
-        metric = process.communication_metric(ignore_last=True)
+        metric = process.communication_metric(process.defection_metric(),
+                                              ignore_last=True)
         comms = process.apply_metric(group_worlds, metric, include_world=False)
         comm_avg = process.average_metric(comms)
         bars[0].append(comm_avg["c2c_def"])
@@ -111,51 +112,72 @@ def grouped_communication_barchart(worlds):
     
     plot_barchart(bars, ["c2c_def", "c2n_def", "n2c_def", "n2n_def"], student_groups)
 
-def lin_fit(xs, ys):
-    xs = np.asarray(xs)
-    xs = xs.reshape(-1, 1)
-    regr = linear_model.LinearRegression()
-    regr.fit(xs, ys)
-    y_pred = regr.predict(xs)
-    print regr.score(xs, ys)
-
-    return y_pred
-
 def communication_scatterplot(worlds):
-    f = plt.figure()
-    #f.gca().set_xticks(np.arange(-20, 70, 10))
-    #f.gca().set_yticks(np.arange(-70, 60, 10))
-    f.gca().set_axisbelow(True)
-    f.gca().axis("equal")
+    f = plt.figure(figsize=(9, 12))
+    ax = f.gca()
+    ax.set_axisbelow(True)
+    ax.axis("equal")
+    ax.spines["top"].set_visible(False)    
+    ax.spines["bottom"].set_visible(False)    
+    ax.spines["right"].set_visible(False)    
+    ax.spines["left"].set_visible(False)   
+    ax.get_xaxis().tick_bottom()    
+    ax.get_yaxis().tick_left()
     plt.grid()
+    f.patch.set_facecolor('white')
 
-    metric = process.communication_metric(ignore_first=False, ignore_last=True)
-    #colors = ['#543005','#8c510a','#bf812d','#dfc27d','#f6e8c3',
-              #'#c7eae5','#80cdc1','#35978f','#01665e','#003c30']
+    metric = process.communication_metric(process.defection_metric(),
+                                ignore_first=False, ignore_last=True)
     colors = ['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00',
               '#ffff33','#a65628','#f781bf','#999999'] 
-
-    all_c2ns = []
-    all_n2cs = []
 
     for i, student_group in enumerate(student_groups):
         selector = process.student_group_selector(student_group)
         group_worlds = process.apply_selectors(worlds, [selector])
 
         comms = process.apply_metric(group_worlds, metric, include_world=False)
-        c2ns = map(lambda c: c["c2n_def"], comms)
-        n2cs = map(lambda c: c["n2c_def"], comms)
+        xs = map(lambda c: c["c2n_def"], comms)
+        ys = map(lambda c: c["n2c_def"], comms)
 
-        all_c2ns = all_c2ns + c2ns
-        all_n2cs = all_n2cs + n2cs
+        plt.scatter(xs, ys, s=100, c=colors[i], label=student_group)
+    
+    #plt.xlabel("Defection Change when Maintaining Communication (Avg. Barrels of Oil)")
+    #plt.ylabel("Defection Change on Multi-Round No Communication (Avg. Barrels of Oil)")
+    plt.xlabel("Defection Change when Losing Communication (Avg. Barrels of Oil)")
+    plt.ylabel("Defection Change when Gaining Communication (Avg. Barrels of Oil)")
+    plt.legend()
+    f.show()
 
-        plt.scatter(c2ns, n2cs, s=100, c=colors[i], label=student_group)
+def nphat_heatmap(worlds):
+    f = plt.figure(figsize=(9, 12))
+    ax = f.gca()
+    ax.set_axisbelow(True)
+    ax.axis("equal")
+    ax.spines["top"].set_visible(False)    
+    ax.spines["bottom"].set_visible(False)    
+    ax.spines["right"].set_visible(False)    
+    ax.spines["left"].set_visible(False)   
+    ax.get_xaxis().tick_bottom()    
+    ax.get_yaxis().tick_left()
+    plt.grid()
+    f.patch.set_facecolor('white')
 
-    plt.plot(all_c2ns, lin_fit(all_c2ns, all_n2cs),
-             color='blue', linewidth=3)
-            
-    plt.xlabel('c2n')
-    plt.ylabel('n2c')
+    metric = process.nphat_metric(ignore_first=False, ignore_last=True)
+    colors = ['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00',
+              '#ffff33','#a65628','#f781bf','#999999'] 
+
+    for i, student_group in enumerate(student_groups):
+        selector = process.student_group_selector(student_group)
+        group_worlds = process.apply_selectors(worlds, [selector])
+
+        comms = process.apply_metric(group_worlds, metric, include_world=False)
+        xs = map(lambda c: c["phat"], comms)
+        ys = map(lambda c: c["nhat"], comms)
+
+        plt.scatter(np.mean(xs), np.mean(ys), s=100, c=colors[i], label=student_group)
+    
+    plt.xlabel("phat")
+    plt.ylabel("nhat")
     plt.legend()
     f.show()
 
@@ -171,14 +193,12 @@ selectors = [process.round_rule_selector("comm", [1,2]),
              #process.world_id_selector(8)]
 selectors = [process.sec_id_selector("Schaumberg-2018a_oidd291", include=False)]
 
-metric = process.communication_metric(ignore_last=True)
-
 filt = process.apply_selectors(data.worlds, selectors)
 print(len(data.worlds))
 print(len(filt))
 
 #grouped_communication_barchart(data.worlds)
-communication_scatterplot(data.worlds)
+nphat_heatmap(data.worlds)
 #defection_areachart(process.apply_selectors(data.worlds, selectors))
 #defection_histogram(data.worlds)
 raw_input()

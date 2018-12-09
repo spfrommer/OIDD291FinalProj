@@ -8,13 +8,24 @@ def defection_metric():
         batia_def = [max(prod - optimal, 0) for prod in world.batia]
         capita_def = [max(prod - optimal, 0) for prod in world.capita]
 
-        tot_def = [a+b+c for a,b,c in zip(alba_def, batia_def, capita_def)]
+        tot_def = [(a+b+c)/3 for a,b,c in zip(alba_def, batia_def, capita_def)]
         return { "def": tot_def }
     return metric
 
-def communication_metric(ignore_first=False, ignore_last=False):
+def disc_defection_metric():
     def metric(world):
-        defection = (defection_metric())(world)["def"]
+        optimal = 38.9
+        alba_def = [max(prod - optimal, 0) for prod in world.alba]
+        batia_def = [max(prod - optimal, 0) for prod in world.batia]
+        capita_def = [max(prod - optimal, 0) for prod in world.capita]
+        
+        def_cnt = [(a>8) + (b>8) + (c>8) for a,b,c in zip(alba_def, batia_def, capita_def)]
+        return { "def": def_cnt }
+    return metric
+
+def communication_metric(def_metric, ignore_first=False, ignore_last=False):
+    def metric(world):
+        defection = (def_metric)(world)["def"]
         rule = data.get_rule(world)
 
         c2c_sum = 0
@@ -52,6 +63,37 @@ def communication_metric(ignore_first=False, ignore_last=False):
                  "c2n_def": smart_div(c2n_sum, c2n_cnt), 
                  "n2c_def": smart_div(n2c_sum, n2c_cnt), 
                  "n2n_def": smart_div(n2n_sum, n2n_cnt) }
+    return metric
+
+def nphat_metric(ignore_first=False, ignore_last=False):
+    def metric(world):
+        defection = (defection_metric())(world)["def"]
+        rule = data.get_rule(world)
+
+        c2n_sum = 0
+        c2n_cnt = 0
+        n2c_sum = 0
+        n2c_cnt = 0
+
+        def smart_div(num, den):
+            if num == 0: return 0
+            return num / den
+
+        for i in range(1 + int(ignore_first),
+                       world.year_cnt() - int(ignore_last)):
+            def_delta = defection[i] - defection[i-1]
+
+            comm_before = rule.comm[i-1] or rule.f2f[i-1]
+            comm_after = rule.comm[i] or rule.f2f[i]
+            if comm_before and (not comm_after) and def_delta > 0:
+                c2n_sum += smart_div(def_delta, (75-38.9) - defection[i-1])
+                c2n_cnt += 1
+            if (not comm_before) and comm_after and def_delta < 0:
+                n2c_sum += smart_div(-def_delta, defection[i-1])
+                n2c_cnt += 1
+
+        return { "nhat": smart_div(c2n_sum, c2n_cnt),
+                 "phat": smart_div(n2c_sum, n2c_cnt) }
     return metric
 
 def cum_defection_metric():
