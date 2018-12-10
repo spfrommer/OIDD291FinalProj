@@ -1,4 +1,5 @@
 from model import Rule, World
+import math
 import data
 
 def defection_metric():

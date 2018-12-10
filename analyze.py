@@ -1,5 +1,6 @@
 import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import numpy as np
 from sklearn import datasets, linear_model
 from sklearn.metrics import mean_squared_error, r2_score
@@ -7,6 +8,7 @@ from sklearn.metrics import mean_squared_error, r2_score
 from model import Rule, World
 import data
 import process
+import theory
 
 matplotlib.rcParams['figure.dpi'] = 200
 
@@ -149,7 +151,7 @@ def communication_scatterplot(worlds):
     f.show()
 
 def nphat_heatmap(worlds):
-    f = plt.figure(figsize=(9, 12))
+    f = plt.figure(figsize=(9, 9))
     ax = f.gca()
     ax.set_axisbelow(True)
     ax.axis("equal")
@@ -162,10 +164,38 @@ def nphat_heatmap(worlds):
     plt.grid()
     f.patch.set_facecolor('white')
 
-    metric = process.nphat_metric(ignore_first=False, ignore_last=True)
     colors = ['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00',
               '#ffff33','#a65628','#f781bf','#999999'] 
+    strats = [theory.trigger_payoff, theory.sneaky_payoff,
+              theory.defect_payoff]
+    
+    min_payoff = 1000000
+    max_payoff = 0
+    res = 0.05
+    size = 1.0
 
+    for phat in np.nditer(np.arange(0.0, size, res)):
+        for nhat in np.nditer(np.arange(0.0, size, res)):
+            payoffs = [strat(phat, nhat) for strat in strats]
+            payoff = max(payoffs)
+            if payoff < min_payoff:
+                min_payoff = payoff
+            if payoff > max_payoff:
+                max_payoff = payoff
+    min_payoff -= 300
+
+    for phat in np.nditer(np.arange(0.0, size, res)):
+        for nhat in np.nditer(np.arange(0.0, size, res)):
+            payoffs = [strat(phat, nhat) for strat in strats]
+            payoff = max(payoffs)
+            index = payoffs.index(payoff)
+            
+            rect = patches.Rectangle((phat,nhat), res, res,
+                                      alpha=(payoff - min_payoff)/(max_payoff - min_payoff),
+                                      facecolor=colors[index], zorder=1)
+            ax.add_patch(rect)
+
+    metric = process.nphat_metric(ignore_first=False, ignore_last=True)
     for i, student_group in enumerate(student_groups):
         selector = process.student_group_selector(student_group)
         group_worlds = process.apply_selectors(worlds, [selector])
@@ -173,12 +203,20 @@ def nphat_heatmap(worlds):
         comms = process.apply_metric(group_worlds, metric, include_world=False)
         xs = map(lambda c: c["phat"], comms)
         ys = map(lambda c: c["nhat"], comms)
-
-        plt.scatter(np.mean(xs), np.mean(ys), s=100, c=colors[i], label=student_group)
+    
+        plt.scatter(np.mean(xs), np.mean(ys), s=50, c='black', label=student_group, zorder=10)
+        plt.text(np.mean(xs), np.mean(ys)+0.02, student_group, horizontalalignment='center', weight='bold')
+        #ax.annotate(student_group, xy=(np.mean(xs), np.mean(ys)), xytext=(np.mean(xs), np.mean(ys)+0.01))
     
     plt.xlabel("phat")
     plt.ylabel("nhat")
-    plt.legend()
+
+    rects = [patches.Rectangle((0, 0), res, res, 1, facecolor=colors[0], zorder=0),
+             patches.Rectangle((0, 0), res, res, 1, facecolor=colors[1], zorder=0), 
+             patches.Rectangle((0, 0), res, res, 1, facecolor=colors[2], zorder=0)]
+    plt.legend(rects, ["Trigger", "Sneaky", "Defect"])
+    ax.set_xlim(xmin=0, xmax=size)
+    ax.set_ylim(ymin=0, ymax=size)
     f.show()
 
 
@@ -198,7 +236,8 @@ print(len(data.worlds))
 print(len(filt))
 
 #grouped_communication_barchart(data.worlds)
-nphat_heatmap(data.worlds)
+communication_scatterplot(data.worlds)
+#nphat_heatmap(data.worlds)
 #defection_areachart(process.apply_selectors(data.worlds, selectors))
 #defection_histogram(data.worlds)
 raw_input()
