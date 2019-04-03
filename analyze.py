@@ -1,6 +1,7 @@
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import matplotlib.lines as mlines
 import numpy as np
 from sklearn import datasets, linear_model
 from sklearn.metrics import mean_squared_error, r2_score
@@ -127,6 +128,8 @@ def communication_scatterplot(worlds):
     ax.get_yaxis().tick_left()
     plt.grid()
     f.patch.set_facecolor('white')
+    plt.axhline(0, color='gray')
+    plt.axvline(0, color='gray')
 
     metric = process.communication_metric(process.defection_metric(),
                                 ignore_first=False, ignore_last=True)
@@ -138,16 +141,18 @@ def communication_scatterplot(worlds):
         group_worlds = process.apply_selectors(worlds, [selector])
 
         comms = process.apply_metric(group_worlds, metric, include_world=False)
-        xs = map(lambda c: c["c2n_def"], comms)
-        ys = map(lambda c: c["n2c_def"], comms)
+        xs = map(lambda c: c["n2c_def"], comms)
+        ys = map(lambda c: c["c2n_def"], comms)
 
-        plt.scatter(xs, ys, s=100, c=colors[i], label=student_group)
+        plt.scatter(xs, ys, s=100, c=colors[i], label=student_group, zorder=10)
     
     #plt.xlabel("Defection Change when Maintaining Communication (Avg. Barrels of Oil)")
     #plt.ylabel("Defection Change on Multi-Round No Communication (Avg. Barrels of Oil)")
-    plt.xlabel("Defection Change when Losing Communication (Avg. Barrels of Oil)")
-    plt.ylabel("Defection Change when Gaining Communication (Avg. Barrels of Oil)")
+    plt.xlabel("Defection change when gaining communication (avg. barrels of oil)")
+    plt.ylabel("Defection change when losing communication (avg. barrels of oil)")
+    plt.title("Sensitivity to communication transitions across worlds")
     plt.legend()
+
     f.show()
 
 def nphat_heatmap(worlds):
@@ -182,6 +187,7 @@ def nphat_heatmap(worlds):
                 min_payoff = payoff
             if payoff > max_payoff:
                 max_payoff = payoff
+                
     min_payoff -= 300
 
     for phat in np.nditer(np.arange(0.0, size, res)):
@@ -191,7 +197,7 @@ def nphat_heatmap(worlds):
             index = payoffs.index(payoff)
             
             rect = patches.Rectangle((phat,nhat), res, res,
-                                      alpha=(payoff - min_payoff)/(max_payoff - min_payoff),
+#                                      alpha=(payoff - min_payoff)/(max_payoff - min_payoff),
                                       facecolor=colors[index], zorder=1)
             ax.add_patch(rect)
 
@@ -208,13 +214,14 @@ def nphat_heatmap(worlds):
         plt.text(np.mean(xs), np.mean(ys)+0.02, student_group, horizontalalignment='center', weight='bold')
         #ax.annotate(student_group, xy=(np.mean(xs), np.mean(ys)), xytext=(np.mean(xs), np.mean(ys)+0.01))
     
-    plt.xlabel("phat")
-    plt.ylabel("nhat")
+    plt.xlabel("p-hat (probability of regaining trust when gaining communication)")
+    plt.ylabel("n-hat (probability of losing trust when losing communication)")
 
     rects = [patches.Rectangle((0, 0), res, res, 1, facecolor=colors[0], zorder=0),
              patches.Rectangle((0, 0), res, res, 1, facecolor=colors[1], zorder=0), 
              patches.Rectangle((0, 0), res, res, 1, facecolor=colors[2], zorder=0)]
-    plt.legend(rects, ["Trigger", "Sneaky", "Defect"])
+    plt.legend(rects, ["Grim trigger", "Preemptive defector", "Pessimistic defector"])
+    plt.title("Optimal strategies for various p-hats and n-hats")
     ax.set_xlim(xmin=0, xmax=size)
     ax.set_ylim(ymin=0, ymax=size)
     f.show()
